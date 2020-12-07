@@ -1,0 +1,99 @@
+.PHONY: info all inspect ssh-connect
+.DEFAULT_GOAL := info
+
+# app environment
+ENV ?= dev
+# repository / source control related vars
+REPO ?= ssh-client
+BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
+COMMIT = $(shell git rev-parse --short HEAD)
+NAME ?= $(REPO)-test
+# NAME ?= $(REPO)_$(BRANCH)
+# NAME ?= $(REPO)_$(BRANCH)_$(COMMIT)
+# container related vars
+WORK_DIR ?= /root
+DOCKER_IMAGE ?= $(shell echo ${NAME} | tr A-Z a-z)
+DOCKER_TAG ?= latest
+# DOCKER_LOG_FLAGS ?= 
+# NETWORK ?= test
+PORT_INTERNAL = 22
+PORT_HOST ?= 2222
+# application related vars
+# using only values of current dev env (dev)
+# ...
+
+all: info build start copy-key ssh-connect-and-list-files clean-all
+
+info:
+	@echo "# $(NAME) #"
+	@echo "Environment: $(ENV)"
+	@echo "Repository: $(REPO), branch: $(BRANCH), commit: $(COMMIT)"
+	@echo "Docker version: "
+	@docker version
+	@echo "Make main tasks here are: "
+	@echo "all, build, start, clean-all, etc"
+	@echo "For a quick build and run, use the task: all"
+	@echo "Look into Makefile for details and other tasks ..."
+	@echo "----"
+
+build:
+	@$(eval dfile := Dockerfile.sshserver)
+	@echo "Build image for repo ${REPO}, branch ${BRANCH}, using '${dfile}')"
+	@docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} -f ./${dfile} .
+	@docker images "${DOCKER_IMAGE}*"
+
+list:
+	@echo "List images related to ${DOCKER_IMAGE}"
+	@docker images "${DOCKER_IMAGE}*"
+
+start:
+	@echo "Start container '${DOCKER_IMAGE}' from image ${DOCKER_IMAGE}:${DOCKER_TAG}"
+	@docker run -d --name=${DOCKER_IMAGE} --rm -p ${PORT_HOST}:${PORT_INTERNAL} ${DOCKER_IMAGE}:${DOCKER_TAG}
+
+show:
+	# display the running container
+	@docker ps --filter "name=${DOCKER_IMAGE}"
+
+# copy:
+	@ # copy sources into the running container
+	@ # @docker cp . ${DOCKER_IMAGE}:${WORK_DIR}/
+
+copy-key:
+	# copy my public key into the running container
+	# and add it to authorized keys
+	# TODO: make it work without file permission errors ...
+	# @docker cp ~/.ssh/id_rsa.pub ${DOCKER_IMAGE}:${WORK_DIR}/
+	# @docker exec -it ${DOCKER_IMAGE} bash -c "cd ..; cat id_rsa.pub >> .ssh/authorized_keys"
+	# TODO: check this alternative way ...
+	# ssh-copy-id -p ${PORT_HOST} -o StrictHostKeyChecking=no -o BatchMode=yes -f root@${DOCKER_IMAGE}
+
+build-and-setup: build start copy-key show
+
+stop:
+	@docker rm -f ${DOCKER_IMAGE}
+
+clean-image:
+	@docker rmi -f ${DOCKER_IMAGE}:${DOCKER_TAG}
+
+clean-all: stop clean-image
+	# stop and clean the image
+
+
+# local-only tasks
+# NOT for CI because for example they require interactive mode, attention ...
+
+inspect:
+	# inspect container contents via an interactive shell into the running container
+	@docker exec -it ${DOCKER_IMAGE} bash
+
+show-logs:
+	@docker logs --follow --tail=1000 ${DOCKER_IMAGE}
+
+# connect to the container
+ssh-connect:
+	# diagnose ssh connection problems with ssh argument -vvv
+	@ssh -o PasswordAuthentication=No -o StrictHostKeyChecking=no -o "UserKnownHostsFile /dev/null" root@localhost -p ${PORT_HOST}
+
+# connect to the container and execute a command via ssh
+ssh-connect-and-list-files:
+	@ssh -o PasswordAuthentication=No -o StrictHostKeyChecking=no -o "UserKnownHostsFile /dev/null" root@localhost -p ${PORT_HOST} -t 'pwd; ls -la'
