@@ -24,7 +24,7 @@ RUN mkdir -p /root/app
 # set rights (secure) folder permissions for the .ssh folder, important
 RUN mkdir -p /root/.ssh \ 
     && touch /root/.ssh/authorized_keys \
-    && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
+    && chmod 700 ~/.ssh && chmod 644 ~/.ssh/authorized_keys
 WORKDIR /root/app
 
 EXPOSE 22

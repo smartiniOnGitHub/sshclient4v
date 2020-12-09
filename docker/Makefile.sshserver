@@ -20,6 +20,7 @@ PORT_INTERNAL = 22
 PORT_HOST ?= 2222
 # application related vars
 # using only values of current dev env (dev)
+KEY_NAME ?= id_rsa.pub
 # ...
 
 all: info build start copy-key ssh-connect-and-list-files clean-all
@@ -61,11 +62,10 @@ show:
 copy-key:
 	# copy my public key into the running container
 	# and add it to authorized keys
-	# TODO: make it work without file permission errors ...
-	# @docker cp ~/.ssh/id_rsa.pub ${DOCKER_IMAGE}:${WORK_DIR}/
-	# @docker exec -it ${DOCKER_IMAGE} bash -c "cd ..; cat id_rsa.pub >> .ssh/authorized_keys"
-	# TODO: check this alternative way ...
-	# ssh-copy-id -p ${PORT_HOST} -o StrictHostKeyChecking=no -o BatchMode=yes -f root@${DOCKER_IMAGE}
+	@$(eval pub_key := `cat ~/.ssh/${KEY_NAME}`)
+	@echo "My Public Key: ${pub_key}"
+	@docker exec -it ${DOCKER_IMAGE} bash -c "cd ; echo ${pub_key} >> ~/.ssh/authorized_keys"
+	@ # docker exec -it ${DOCKER_IMAGE} bash -c "cd ; cat .ssh/authorized_keys"
 
 build-and-setup: build start copy-key show
 
