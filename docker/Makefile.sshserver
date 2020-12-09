@@ -63,9 +63,7 @@ copy-key:
 	# copy my public key into the running container
 	# and add it to authorized keys
 	@$(eval pub_key := `cat ~/.ssh/${KEY_NAME}`)
-	@echo "My Public Key: ${pub_key}"
 	@docker exec -it ${DOCKER_IMAGE} bash -c "cd ; echo ${pub_key} >> ~/.ssh/authorized_keys"
-	@ # docker exec -it ${DOCKER_IMAGE} bash -c "cd ; cat .ssh/authorized_keys"
 
 build-and-setup: build start copy-key show
 
